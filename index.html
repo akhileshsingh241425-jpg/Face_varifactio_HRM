@@ -3,298 +3,454 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HRM Face Verification System</title>
+    <title>Simple Face Verification - AI Only</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
-            align-items: center;
             justify-content: center;
-            padding: 20px;
+            align-items: center;
         }
-        
+
         .container {
             background: white;
-            border-radius: 20px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-            padding: 40px;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
             max-width: 500px;
-            width: 100%;
+            width: 90%;
+        }
+
+        h1 {
             text-align: center;
-        }
-        
-        .header {
-            margin-bottom: 30px;
-        }
-        
-        .header h1 {
             color: #333;
-            font-size: 28px;
-            margin-bottom: 10px;
+            margin-bottom: 30px;
+            font-size: 24px;
         }
-        
-        .header p {
-            color: #666;
-            font-size: 16px;
-        }
-        
+
         .form-group {
-            margin-bottom: 25px;
-            text-align: left;
+            margin-bottom: 20px;
         }
-        
+
         label {
             display: block;
             margin-bottom: 8px;
-            color: #333;
             font-weight: 600;
-            font-size: 14px;
+            color: #555;
         }
-        
-        input[type="text"], input[type="file"] {
+
+        input[type="text"] {
             width: 100%;
-            padding: 12px 15px;
-            border: 2px solid #e1e5e9;
-            border-radius: 10px;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
             font-size: 16px;
-            transition: border-color 0.3s ease;
-            background: #f8f9fa;
+            transition: border-color 0.3s;
         }
-        
-        input[type="text"]:focus, input[type="file"]:focus {
+
+        input[type="text"]:focus {
             outline: none;
             border-color: #667eea;
-            background: white;
         }
-        
-        .camera-section {
-            background: #f8f9fa;
-            border-radius: 15px;
-            padding: 20px;
+
+        .camera-container {
             margin: 20px 0;
+            text-align: center;
         }
-        
-        .camera-label {
-            color: #333;
-            font-weight: 600;
-            margin-bottom: 15px;
-            display: block;
-        }
-        
-        video {
+
+        #video {
             width: 100%;
-            max-width: 300px;
-            height: 200px;
+            max-width: 400px;
+            height: 300px;
+            border: 2px solid #ddd;
             border-radius: 10px;
-            border: 3px solid #e1e5e9;
             object-fit: cover;
-            margin-bottom: 15px;
         }
-        
-        .btn {
+
+        #canvas {
+            display: none;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        button {
+            flex: 1;
+            min-width: 120px;
+            padding: 12px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
-            padding: 12px 25px;
-            border-radius: 25px;
+            border-radius: 8px;
             font-size: 16px;
-            font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s ease;
-            margin: 5px;
+            transition: transform 0.2s, box-shadow 0.2s;
         }
-        
-        .btn:hover {
+
+        button:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
         }
-        
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 15px 40px;
-            font-size: 18px;
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
         }
-        
-        .btn-capture {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        }
-        
-        .preview-image {
-            max-width: 100%;
-            border-radius: 10px;
-            border: 3px solid #e1e5e9;
-            margin-top: 15px;
-        }
-        
-        .result {
-            margin-top: 30px;
-            padding: 20px;
-            border-radius: 15px;
-            font-weight: 600;
-            font-size: 16px;
-        }
-        
-        .result.success {
-            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
-            color: #155724;
-            border: 2px solid #c3e6cb;
-        }
-        
-        .result.error {
-            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
-            color: #721c24;
-            border: 2px solid #f5c6cb;
-        }
-        
-        .reference-image-container {
+
+        #result {
             margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
             text-align: center;
-        }
-        
-        .reference-image-container img {
-            max-width: 100%;
-            border-radius: 10px;
-            border: 3px solid #e1e5e9;
-            margin-top: 10px;
-        }
-        
-        .reference-label {
-            color: #666;
             font-weight: 600;
-            margin-bottom: 10px;
-            display: block;
+            display: none;
         }
-        
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
         .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-right: 10px;
+            display: none;
+            text-align: center;
+            margin: 20px 0;
         }
-        
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+
+        .file-upload {
+            margin: 20px 0;
+        }
+
+        .file-upload input[type="file"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .ai-info {
+            background: #e7f3ff;
+            border: 1px solid #b3d7ff;
+            color: #0066cc;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-size: 14px;
+        }
+
+        .reference-image {
+            max-width: 100px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+            
+            button {
+                margin-bottom: 10px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>🔐 Face Verification</h1>
-            <p>Secure employee authentication system</p>
+        <h1>🤖 Simple Face Verification</h1>
+        <div class="ai-info">
+            <strong>AI-Powered:</strong> Using your trained best.pt model for fake image detection only
         </div>
         
-        <form id="verifyForm">
+        <form id="verificationForm">
             <div class="form-group">
-                <label for="punch_id">👤 Employee Punch ID</label>
-                <input type="text" id="punch_id" name="punch_id" placeholder="Enter your punch ID" required>
+                <label for="punchId">Punch ID:</label>
+                <input type="text" id="punchId" name="punchId" required placeholder="Enter employee punch ID">
             </div>
-
+            
             <div class="form-group">
-                <label for="name">📝 Full Name</label>
-                <input type="text" id="name" name="name" placeholder="Enter your full name" required>
+                <label for="name">Name:</label>
+                <input type="text" id="name" name="name" required placeholder="Enter employee name">
             </div>
 
-            <div class="form-group">
-                <label for="picture">📁 Upload Picture (Optional)</label>
-                <input type="file" id="picture" name="picture" accept="image/*">
+            <!-- Camera Section -->
+            <div class="camera-container">
+                <video id="video" autoplay playsinline></video>
+                <canvas id="canvas"></canvas>
             </div>
 
-            <div class="camera-section">
-                <span class="camera-label">📸 Live Camera Capture</span>
-                <video id="video" autoplay></video>
-                <br>
-                <button type="button" id="captureBtn" class="btn btn-capture">📷 Capture Photo</button>
-                <canvas id="canvas" width="320" height="240" style="display:none;"></canvas>
-                <img id="preview" class="preview-image" style="display:none;"/>
+            <div class="button-group">
+                <button type="button" id="startCamera">📷 Start Camera</button>
+                <button type="button" id="capturePhoto" disabled>📸 Capture</button>
+                <button type="button" id="verify" disabled>✅ Verify</button>
             </div>
 
-            <button type="submit" class="btn btn-primary">🔍 Verify Face</button>
+            <!-- File Upload Alternative -->
+            <div class="file-upload">
+                <label for="fileInput">Or upload an image:</label>
+                <input type="file" id="fileInput" accept="image/*">
+            </div>
+
+            <!-- Test AI Only -->
+            <div class="button-group">
+                <button type="button" id="testAI" disabled>🤖 Test AI Only</button>
+            </div>
         </form>
-        
+
+        <!-- Loading Animation -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <div>Processing with AI model...</div>
+        </div>
+
+        <!-- Result Display -->
         <div id="result"></div>
-        <div id="refImageContainer"></div>
     </div>
+
     <script>
-        // Camera setup
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
-        const preview = document.getElementById('preview');
-        const captureBtn = document.getElementById('captureBtn');
-        const pictureInput = document.getElementById('picture');
+        let video = document.getElementById('video');
+        let canvas = document.getElementById('canvas');
+        let ctx = canvas.getContext('2d');
+        let stream = null;
+        let capturedImage = null;
+
+        // Button references
+        const startCameraBtn = document.getElementById('startCamera');
+        const captureBtn = document.getElementById('capturePhoto');
+        const verifyBtn = document.getElementById('verify');
+        const testAIBtn = document.getElementById('testAI');
+        const fileInput = document.getElementById('fileInput');
 
         // Start camera
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            navigator.mediaDevices.getUserMedia({ video: true }).then(function(stream) {
-                video.srcObject = stream;
-                video.play();
-            });
-        }
-
-        // Capture image from camera
-        captureBtn.onclick = function() {
-            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-            canvas.toBlob(function(blob) {
-                // Show preview
-                preview.src = URL.createObjectURL(blob);
-                preview.style.display = 'block';
-                // Set blob as file input
-                const file = new File([blob], 'captured.jpg', { type: 'image/jpeg' });
-                // Remove any previous file
-                pictureInput.value = '';
-                // Use DataTransfer to set file input
-                const dt = new DataTransfer();
-                dt.items.add(file);
-                pictureInput.files = dt.files;
-            }, 'image/jpeg');
-        };
-
-        document.getElementById('verifyForm').onsubmit = async function(e) {
-            e.preventDefault();
-            const form = e.target;
-            const formData = new FormData(form);
-            
-            // Show loading state
-            document.getElementById('result').innerHTML = '<div class="result"><span class="loading"></span>Verifying your identity...</div>';
-            document.getElementById('refImageContainer').innerHTML = '';
-            
+        startCameraBtn.addEventListener('click', async () => {
             try {
-                const response = await fetch('http://127.0.0.1:8000/verify', {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'user',
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    } 
+                });
+                video.srcObject = stream;
+                
+                startCameraBtn.textContent = '📷 Camera Active';
+                startCameraBtn.disabled = true;
+                captureBtn.disabled = false;
+                
+                showResult('Camera started successfully!', 'info');
+            } catch (err) {
+                showResult('Error accessing camera: ' + err.message, 'error');
+            }
+        });
+
+        // Capture photo
+        captureBtn.addEventListener('click', () => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0);
+            
+            canvas.toBlob((blob) => {
+                capturedImage = blob;
+                verifyBtn.disabled = false;
+                testAIBtn.disabled = false;
+                showResult('Photo captured! Ready for verification.', 'info');
+            }, 'image/jpeg', 0.8);
+        });
+
+        // File input handler
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                capturedImage = e.target.files[0];
+                verifyBtn.disabled = false;
+                testAIBtn.disabled = false;
+                showResult('Image uploaded! Ready for verification.', 'info');
+            }
+        });
+
+        // Verify with AI
+        verifyBtn.addEventListener('click', async () => {
+            if (!capturedImage) {
+                showResult('Please capture a photo or upload an image first!', 'error');
+                return;
+            }
+
+            const punchId = document.getElementById('punchId').value;
+            const name = document.getElementById('name').value;
+
+            if (!punchId || !name) {
+                showResult('Please fill in Punch ID and Name!', 'error');
+                return;
+            }
+
+            showLoading(true);
+
+            try {
+                const formData = new FormData();
+                formData.append('punch_id', punchId);
+                formData.append('name', name);
+                formData.append('picture', capturedImage, 'photo.jpg');
+
+                const response = await fetch('/verify', {
                     method: 'POST',
                     body: formData
                 });
-                const data = await response.json();
-                
-                if (data.status === true) {
-                    document.getElementById('result').innerHTML = '<div class="result success">✅ Face Verified Successfully! Welcome.</div>';
+
+                const result = await response.json();
+                showLoading(false);
+
+                if (result.status) {
+                    showResult(`✅ ${result.message}`, 'success');
+                    if (result.ai_analysis) {
+                        showAIInfo(result.ai_analysis);
+                    }
                 } else {
-                    document.getElementById('result').innerHTML = '<div class="result error">❌ ' + (data.reason || 'Face verification failed') + '</div>';
-                    
-                    if (data.reference_image) {
-                        document.getElementById('refImageContainer').innerHTML = 
-                            '<div class="reference-image-container">' +
-                            '<span class="reference-label">📷 Reference Image Used for Comparison:</span>' +
-                            '<img src="' + data.reference_image + '" alt="Reference Image">' +
-                            '</div>';
+                    showResult(`❌ ${result.reason}`, 'error');
+                    if (result.ai_analysis) {
+                        showAIInfo(result.ai_analysis);
+                    }
+                    if (result.reference_image) {
+                        showReferenceImage(result.reference_image);
                     }
                 }
-            } catch (err) {
-                document.getElementById('result').innerHTML = '<div class="result error">⚠️ Connection Error: ' + err.message + '</div>';
+            } catch (error) {
+                showLoading(false);
+                showResult('Network error: ' + error.message, 'error');
             }
-        };
+        });
+
+        // Test AI only
+        testAIBtn.addEventListener('click', async () => {
+            if (!capturedImage) {
+                showResult('Please capture a photo or upload an image first!', 'error');
+                return;
+            }
+
+            showLoading(true);
+
+            try {
+                const formData = new FormData();
+                formData.append('picture', capturedImage, 'photo.jpg');
+
+                const response = await fetch('/test-ai-detection', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                showLoading(false);
+
+                if (result.status) {
+                    showResult(`${result.message} (Confidence: ${(result.confidence * 100).toFixed(1)}%)`, 'success');
+                } else {
+                    showResult(`${result.message} (Confidence: ${(result.confidence * 100).toFixed(1)}%)`, 'error');
+                }
+
+                // Show additional AI info
+                const aiInfo = `
+                    <div class="ai-info">
+                        <strong>AI Analysis:</strong><br>
+                        Class: ${result.detected_class || 'unknown'}<br>
+                        Confidence: ${(result.confidence * 100).toFixed(1)}%<br>
+                        Model Status: ${result.model_loaded ? '✅ Loaded' : '❌ Not Loaded'}<br>
+                        Processing Time: ${result.processing_time}s
+                    </div>
+                `;
+                document.getElementById('result').innerHTML += aiInfo;
+
+            } catch (error) {
+                showLoading(false);
+                showResult('Network error: ' + error.message, 'error');
+            }
+        });
+
+        function showResult(message, type) {
+            const result = document.getElementById('result');
+            result.innerHTML = message;
+            result.className = type;
+            result.style.display = 'block';
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+
+        function showAIInfo(aiData) {
+            const aiInfo = `
+                <div class="ai-info">
+                    <strong>🤖 AI Analysis:</strong><br>
+                    Status: ${aiData.is_real ? '✅ Real Image' : '❌ Fake Image'}<br>
+                    Confidence: ${(aiData.confidence * 100).toFixed(1)}%<br>
+                    Detected Class: ${aiData.detected_class || 'unknown'}
+                </div>
+            `;
+            document.getElementById('result').innerHTML += aiInfo;
+        }
+
+        function showReferenceImage(imgUrl) {
+            const refImg = `
+                <div class="ai-info">
+                    <strong>Reference Image:</strong><br>
+                    <img src="${imgUrl}" class="reference-image" alt="Reference">
+                </div>
+            `;
+            document.getElementById('result').innerHTML += refImg;
+        }
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+        });
     </script>
 </body>
 </html>
