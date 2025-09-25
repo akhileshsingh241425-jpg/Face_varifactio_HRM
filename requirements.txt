@@ -1,13 +1,23 @@
-fastapi==0.103.1
-uvicorn[standard]==0.23.2
-python-multipart==0.0.6
-requests==2.31.0
-face-recognition==1.3.0
-dlib==19.24.2
-Pillow==10.0.0
-numpy==1.24.3
-torch>=2.0.0
+# Python 3.12 Compatible Versions
+fastapi>=0.104.1
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
+requests>=2.31.0
+Pillow>=10.1.0
+numpy>=1.25.0
+
+# Face recognition - Latest compatible
+face-recognition>=1.3.0
+dlib>=19.24.0
+
+# PyTorch for Python 3.12
+torch>=2.1.0
+torchvision>=0.16.0
 ultralytics>=8.0.0
+
+# Computer Vision
 opencv-python>=4.8.0
-cmake
-wheel
+
+# Build essentials
+setuptools>=69.0.0
+wheel>=0.42.0
