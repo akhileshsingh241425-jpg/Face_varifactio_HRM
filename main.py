@@ -26,16 +26,14 @@ app.add_middleware(
 EMPLOYEE_API_URL = "https://hrm.umanerp.com/api/users/getEmployee"
 IMG_BASE_URL = "https://hrm.umanerp.com/"
 
-# Simple cache for employee data
-employee_cache = {}
-encoding_cache = {}
-
 class AIFakeDetector:
     def __init__(self, model_path='best.pt'):
         """Initialize AI model for fake vs real detection"""
         try:
             print(f"Loading AI model from {model_path}...")
+            # Load with specific settings to avoid memory issues
             self.model = YOLO(model_path)
+            self.model.overrides['verbose'] = False  # Reduce verbosity
             print("✅ AI Fake Detection Model loaded successfully!")
             self.model_loaded = True
         except Exception as e:
@@ -53,8 +51,8 @@ class AIFakeDetector:
             }
         
         try:
-            # Run inference
-            results = self.model(image_path_or_array, conf=confidence_threshold)
+            # Run inference with memory optimization
+            results = self.model(image_path_or_array, conf=confidence_threshold, verbose=False, imgsz=416)
             
             if not results or len(results) == 0:
                 return {
@@ -109,6 +107,21 @@ class AIFakeDetector:
     def analyze_image(self, image_array: np.ndarray):
         """Analyze image using AI model"""
         try:
+            # Resize image to reduce memory usage
+            max_size = 640
+            height, width = image_array.shape[:2]
+            if max(height, width) > max_size:
+                if height > width:
+                    new_height = max_size
+                    new_width = int(width * (max_size / height))
+                else:
+                    new_width = max_size
+                    new_height = int(height * (max_size / width))
+                
+                pil_image = Image.fromarray(image_array.astype(np.uint8))
+                pil_image = pil_image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                image_array = np.array(pil_image)
+            
             # Save image temporarily for model inference
             with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as temp_img:
                 # Convert numpy array to PIL and save
@@ -117,14 +130,17 @@ class AIFakeDetector:
                 else:
                     pil_image = Image.fromarray(image_array.astype(np.uint8))
                 
-                pil_image.save(temp_img.name, 'JPEG')
+                pil_image.save(temp_img.name, 'JPEG', quality=85)  # Reduce quality to save memory
                 temp_img_path = temp_img.name
             
             # Run AI prediction
             ai_result = self.predict_fake_real(temp_img_path)
             
             # Clean up temp file
-            os.unlink(temp_img_path)
+            try:
+                os.unlink(temp_img_path)
+            except:
+                pass  # Ignore cleanup errors
             
             return ai_result
             
@@ -144,24 +160,16 @@ def read_root():
     return FileResponse('index.html')
 
 def get_employee_data(employee_id: str):
-    """Simple cache for employee data"""
-    if employee_id in employee_cache:
-        return employee_cache[employee_id]
-    
+    """Fresh employee data - no cache"""
     response = requests.post(EMPLOYEE_API_URL, json={"employeeId": employee_id})
     if response.status_code != 200:
         return None
     data = response.json()
     employees = data.get("employees", [])
-    result = employees[0] if employees else None
-    employee_cache[employee_id] = result
-    return result
+    return employees[0] if employees else None
 
-def get_cached_face_encoding(img_url: str):
-    """Simple cache for face encodings"""
-    if img_url in encoding_cache:
-        return encoding_cache[img_url]
-    
+def get_fresh_face_encoding(img_url: str):
+    """Fresh face encoding - no cache"""
     try:
         img_response = requests.get(img_url, timeout=5)
         if img_response.status_code != 200:
@@ -174,15 +182,13 @@ def get_cached_face_encoding(img_url: str):
         img = np.array(pil_img)
         
         encodings = face_recognition.face_encodings(img)
-        result = encodings[0] if encodings else None
-        encoding_cache[img_url] = result
-        return result
+        return encodings[0] if encodings else None
     except Exception:
         return None
 
 def get_reference_encoding(employee_id: str, return_url=False):
-    """Get employee reference encoding"""
-    # Get employee data (cached)
+    """Get employee reference encoding - fresh data"""
+    # Get employee data (fresh)
     employee = get_employee_data(employee_id)
     if not employee:
         return None, "Punch ID is wrong or employee not found.", None if return_url else None
@@ -193,8 +199,8 @@ def get_reference_encoding(employee_id: str, return_url=False):
     
     img_url = IMG_BASE_URL + user_img_path
     
-    # Get face encoding (cached)
-    encoding = get_cached_face_encoding(img_url)
+    # Get face encoding (fresh)
+    encoding = get_fresh_face_encoding(img_url)
     if encoding is None:
         return None, "Employee mil gaya, but no face detected in reference image.", img_url if return_url else None
     
@@ -248,7 +254,7 @@ def verify_person(
     # Read uploaded image
     test_image_bytes = picture.file.read()
     
-    # Get reference encoding (cached)
+    # Get reference encoding (fresh from HRM API)
     ref_encoding, error, ref_img_url = get_reference_encoding(punch_id, return_url=True)
     if ref_encoding is None:
         return JSONResponse({"status": False, "reason": error, "reference_image": ref_img_url})
