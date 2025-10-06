@@ -138,6 +138,38 @@
             border: 1px solid #bee5eb;
         }
 
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        /* Enhanced error display styles */
+        .error-details {
+            margin-top: 10px;
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        .fake-detection {
+            background: linear-gradient(135deg, #ff6b6b, #ffd93d);
+            color: #721c24;
+            border: 2px solid #ff4757;
+            animation: pulse-red 2s infinite;
+        }
+
+        .face-mismatch {
+            background: linear-gradient(135deg, #ff9ff3, #f368e0);
+            color: #721c24;
+            border: 2px solid #e84393;
+        }
+
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(255, 71, 87, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); }
+        }
+
         .loading {
             display: none;
             text-align: center;
@@ -208,43 +240,142 @@
     <div class="container">
         <h1>🤖 Simple Face Verification</h1>
         <div class="ai-info">
-            <strong>AI-Powered:</strong> Using your trained best.pt model for fake image detection only
+            <strong>AI-Powered:</strong> Using your trained model for fake image detection only
+            <div id="currentModel" style="margin-top: 5px; font-size: 0.9em; color: #666;">
+                Current: Loading...
+            </div>
         </div>
         
-        <form id="verificationForm">
-            <div class="form-group">
-                <label for="punchId">Punch ID:</label>
-                <input type="text" id="punchId" name="punchId" required placeholder="Enter employee punch ID">
+        <!-- Model Selection Section -->
+        <div class="model-selection" style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+            <strong>🤖 AI Model Selection:</strong>
+            <div style="margin-top: 10px;">
+                <select id="modelSelect" style="width: 70%; padding: 8px; border-radius: 5px; border: 1px solid #ddd; margin-right: 10px;">
+                    <option value="">Loading models...</option>
+                </select>
+                <button type="button" id="switchModel" style="padding: 8px 15px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                    Switch
+                </button>
             </div>
-            
-            <div class="form-group">
-                <label for="name">Name:</label>
-                <input type="text" id="name" name="name" required placeholder="Enter employee name">
-            </div>
+        </div>
+        
+        <!-- Tabs Navigation -->
+        <div class="tabs" style="margin: 20px 0;">
+            <button class="tab-button active" onclick="openTab(event, 'regularTab')" style="background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px 5px 0 0; cursor: pointer; margin-right: 5px;">
+                📷 Regular Verification
+            </button>
+            <button class="tab-button" onclick="openTab(event, 'liveTab')" style="background: #6c757d; color: white; padding: 10px 20px; border: none; border-radius: 5px 5px 0 0; cursor: pointer;">
+                🎯 Live Camera Unlock
+            </button>
+        </div>
+        
+        <!-- Tab Content: Regular Verification -->
+        <div id="regularTab" class="tab-content" style="display: block;">
+            <form id="verificationForm">
+                <div class="form-group">
+                    <label for="punchId">Punch ID:</label>
+                    <input type="text" id="punchId" name="punchId" required placeholder="Enter employee punch ID">
+                </div>
+                
+                <div class="form-group">
+                    <label for="name">Name:</label>
+                    <input type="text" id="name" name="name" required placeholder="Enter employee name">
+                </div>
 
-            <!-- Camera Section -->
-            <div class="camera-container">
-                <video id="video" autoplay playsinline></video>
-                <canvas id="canvas"></canvas>
-            </div>
+                <!-- Camera Section -->
+                <div class="camera-container">
+                    <video id="video" autoplay playsinline></video>
+                    <canvas id="canvas"></canvas>
+                </div>
 
-            <div class="button-group">
-                <button type="button" id="startCamera">📷 Start Camera</button>
-                <button type="button" id="capturePhoto" disabled>📸 Capture</button>
-                <button type="button" id="verify" disabled>✅ Verify</button>
-            </div>
+                <div class="button-group">
+                    <button type="button" id="startCamera">📷 Start Camera</button>
+                    <button type="button" id="capturePhoto" disabled>📸 Capture</button>
+                    <button type="button" id="verify" disabled>✅ Verify</button>
+                </div>
 
             <!-- File Upload Alternative -->
             <div class="file-upload">
-                <label for="fileInput">Or upload an image:</label>
+                <label for="fileInput">Upload single image:</label>
                 <input type="file" id="fileInput" accept="image/*">
             </div>
+            
+            <!-- Multiple File Upload -->
+            <div class="file-upload" style="margin-top: 15px;">
+                <label for="multipleFileInput">Or upload multiple images:</label>
+                <input type="file" id="multipleFileInput" accept="image/*" multiple>
+                <div id="selectedFiles" style="margin-top: 10px; font-size: 0.9em; color: #666;"></div>
+            </div>
 
-            <!-- Test AI Only -->
+            <!-- Single Image Test -->
             <div class="button-group">
-                <button type="button" id="testAI" disabled>🤖 Test AI Only</button>
+                <button type="button" id="testAI" disabled>🤖 Test Current AI</button>
+                <button type="button" id="dualModelTest" disabled style="background: linear-gradient(45deg, #ff6b6b, #4ecdc4); margin-left: 10px;">
+                    🔄 Test Both Models
+                </button>
+            </div>
+            
+            <!-- Multiple Images Test -->
+            <div class="button-group" style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px;">
+                <button type="button" id="testMultipleAI" disabled style="background: linear-gradient(45deg, #667eea, #764ba2); width: 48%;">
+                    📁 Test Multiple - Current AI
+                </button>
+                <button type="button" id="testMultipleDual" disabled style="background: linear-gradient(45deg, #f093fb, #f5576c); width: 48%; margin-left: 4%;">
+                    🔄 Test Multiple - Both Models
+                </button>
             </div>
         </form>
+        </div>
+        
+        <!-- Tab Content: Live Camera Verification -->
+        <div id="liveTab" class="tab-content" style="display: none;">
+            <form id="liveVerificationForm">
+                <div style="text-align: center; margin-bottom: 20px; padding: 15px; background: linear-gradient(45deg, #28a745, #20c997); color: white; border-radius: 10px;">
+                    <h3>🎯 Live Camera Face Unlock</h3>
+                    <p>Just like phone face unlock - Look at camera for automatic verification!</p>
+                </div>
+                
+                <div class="form-group">
+                    <label for="livePunchId">Punch ID:</label>
+                    <input type="text" id="livePunchId" name="livePunchId" required placeholder="Enter employee punch ID">
+                </div>
+                
+                <div class="form-group">
+                    <label for="liveName">Name:</label>
+                    <input type="text" id="liveName" name="liveName" required placeholder="Enter employee name">
+                </div>
+
+                <!-- Live Camera Section -->
+                <div class="camera-container">
+                    <video id="liveVideo" autoplay playsinline style="border: 3px solid #28a745; border-radius: 10px;"></video>
+                    <div id="liveOverlay" style="
+                        position: absolute;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%);
+                        color: white;
+                        background: rgba(0,0,0,0.7);
+                        padding: 10px;
+                        border-radius: 5px;
+                        font-weight: bold;
+                        display: none;
+                    ">🎯 Scanning...</div>
+                </div>
+
+                <div class="button-group" style="text-align: center;">
+                    <button type="button" id="startLiveCamera" style="background: linear-gradient(45deg, #007bff, #0056b3); padding: 15px 30px; font-size: 16px;">
+                        📹 Start Live Camera
+                    </button>
+                    <button type="button" id="liveVerify" disabled style="background: linear-gradient(45deg, #28a745, #20c997); padding: 15px 30px; font-size: 16px; margin-left: 15px;">
+                        🎯 Start Face Unlock
+                    </button>
+                </div>
+                
+                <div id="liveStatus" style="margin-top: 20px; padding: 15px; text-align: center; font-weight: bold; border-radius: 10px; display: none;">
+                    Ready for live verification
+                </div>
+            </form>
+        </div>
 
         <!-- Loading Animation -->
         <div class="loading" id="loading">
@@ -257,22 +388,161 @@
     </div>
 
     <script>
+        // Tab functionality
+        function openTab(evt, tabName) {
+            var i, tabcontent, tabbuttons;
+            
+            // Hide all tab content
+            tabcontent = document.getElementsByClassName("tab-content");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            
+            // Remove active class from all tab buttons
+            tabbuttons = document.getElementsByClassName("tab-button");
+            for (i = 0; i < tabbuttons.length; i++) {
+                tabbuttons[i].style.background = "#6c757d";
+            }
+            
+            // Show selected tab and mark button as active
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.style.background = "#007bff";
+        }
+        
+        // Regular tab elements
         let video = document.getElementById('video');
         let canvas = document.getElementById('canvas');
         let ctx = canvas.getContext('2d');
         let stream = null;
         let capturedImage = null;
+        
+        // Live tab elements
+        let liveVideo = document.getElementById('liveVideo');
+        let liveStream = null;
+        let liveVerificationActive = false;
+        
+        // Model Management
+        async function loadAvailableModels() {
+            try {
+                const response = await fetch('/models');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                const modelSelect = document.getElementById('modelSelect');
+                const currentModel = document.getElementById('currentModel');
+                
+                if (modelSelect) {
+                    modelSelect.innerHTML = '';
+                    
+                    if (data.models && data.models.length > 0) {
+                        data.models.forEach(model => {
+                            const option = document.createElement('option');
+                            option.value = model.name;
+                            option.textContent = `${model.name} (${(model.size / (1024*1024)).toFixed(1)}MB) - ${model.modified}`;
+                            if (model.is_current) {
+                                option.selected = true;
+                            }
+                            modelSelect.appendChild(option);
+                        });
+                    } else {
+                        modelSelect.innerHTML = '<option>No models found</option>';
+                    }
+                }
+                
+                if (currentModel) {
+                    currentModel.textContent = `Current: ${data.current || 'best.pt'}`;
+                }
+            } catch (error) {
+                console.error('Error loading models:', error);
+                const modelSelect = document.getElementById('modelSelect');
+                const currentModel = document.getElementById('currentModel');
+                
+                if (modelSelect) {
+                    modelSelect.innerHTML = '<option>Error loading models</option>';
+                }
+                if (currentModel) {
+                    currentModel.textContent = 'Current: best.pt (default)';
+                }
+                
+                // Don't show error to user for model loading - just use defaults
+                console.warn('Using default model configuration');
+            }
+        }
+        
+        async function switchModel() {
+            const selectedModel = document.getElementById('modelSelect').value;
+            if (!selectedModel) {
+                showResult('Please select a model first', 'error');
+                return;
+            }
+            
+            try {
+                showResult('Switching AI model...', 'info');
+                
+                const formData = new FormData();
+                formData.append('model_name', selectedModel);
+                
+                const response = await fetch('/switch-model', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showResult(result.message, 'success');
+                    document.getElementById('currentModel').textContent = `Current: ${result.current_model}`;
+                    loadAvailableModels(); // Refresh the list
+                } else {
+                    showResult(result.message, 'error');
+                }
+            } catch (error) {
+                showResult('Error switching model: ' + error.message, 'error');
+            }
+        }
+        
+        // Load models on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadAvailableModels();
+            
+            // Check camera support
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                showResult('⚠️ Camera not supported in this browser or requires HTTPS. Please use Chrome/Firefox/Safari with HTTPS.', 'info');
+            }
+        });
 
         // Button references
         const startCameraBtn = document.getElementById('startCamera');
         const captureBtn = document.getElementById('capturePhoto');
         const verifyBtn = document.getElementById('verify');
         const testAIBtn = document.getElementById('testAI');
+        const dualModelTestBtn = document.getElementById('dualModelTest');
         const fileInput = document.getElementById('fileInput');
+        const multipleFileInput = document.getElementById('multipleFileInput');
+        const testMultipleAIBtn = document.getElementById('testMultipleAI');
+        const testMultipleDualBtn = document.getElementById('testMultipleDual');
+        const liveVerifyBtn = document.getElementById('liveVerify');
+        const startLiveCameraBtn = document.getElementById('startLiveCamera');
+        const switchModelBtn = document.getElementById('switchModel');
+        
+        // Variables for live verification
+        let selectedFiles = [];
+        
+        // Model switch event listener
+        switchModelBtn.addEventListener('click', switchModel);
 
         // Start camera
         startCameraBtn.addEventListener('click', async () => {
             try {
+                // Check if getUserMedia is supported
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('Camera access not supported in this browser. Please use Chrome, Firefox, or Safari.');
+                }
+                
                 stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { 
                         facingMode: 'user',
@@ -285,8 +555,9 @@
                 startCameraBtn.textContent = '📷 Camera Active';
                 startCameraBtn.disabled = true;
                 captureBtn.disabled = false;
+                liveVerifyBtn.disabled = false;
                 
-                showResult('Camera started successfully!', 'info');
+                showResult('Camera started successfully! You can now use Live Verify (Face Unlock Style).', 'info');
             } catch (err) {
                 showResult('Error accessing camera: ' + err.message, 'error');
             }
@@ -302,7 +573,8 @@
                 capturedImage = blob;
                 verifyBtn.disabled = false;
                 testAIBtn.disabled = false;
-                showResult('Photo captured! Ready for verification.', 'info');
+                dualModelTestBtn.disabled = false;
+                showResult('Photo captured! Ready for verification or dual model testing.', 'info');
             }, 'image/jpeg', 0.8);
         });
 
@@ -312,7 +584,27 @@
                 capturedImage = e.target.files[0];
                 verifyBtn.disabled = false;
                 testAIBtn.disabled = false;
-                showResult('Image uploaded! Ready for verification.', 'info');
+                dualModelTestBtn.disabled = false;
+                showResult('Image uploaded! Ready for verification or dual model testing.', 'info');
+            }
+        });
+
+        // Multiple file input handler
+        multipleFileInput.addEventListener('change', (e) => {
+            selectedFiles = Array.from(e.target.files);
+            
+            if (selectedFiles.length > 0) {
+                const fileNames = selectedFiles.map(f => f.name).join(', ');
+                document.getElementById('selectedFiles').innerHTML = 
+                    `<strong>Selected ${selectedFiles.length} files:</strong><br>${fileNames.length > 100 ? fileNames.substring(0, 100) + '...' : fileNames}`;
+                
+                testMultipleAIBtn.disabled = false;
+                testMultipleDualBtn.disabled = false;
+                showResult(`${selectedFiles.length} images selected! Ready for batch testing.`, 'info');
+            } else {
+                testMultipleAIBtn.disabled = true;
+                testMultipleDualBtn.disabled = true;
+                document.getElementById('selectedFiles').innerHTML = '';
             }
         });
 
@@ -353,7 +645,26 @@
                         showAIInfo(result.ai_analysis);
                     }
                 } else {
-                    showResult(`❌ ${result.reason}`, 'error');
+                    // Enhanced error display based on error type
+                    const errorType = result.error_type || 'UNKNOWN';
+                    let errorClass = 'error';
+                    
+                    if (errorType === 'FAKE_DETECTION') {
+                        showResult(`🚫 FAKE IMAGE DETECTED!<br><strong>${result.reason}</strong><br><small>⚠️ Please use real camera, not phone screen or photo</small>`, 'error', 'FAKE_DETECTION');
+                    } else if (errorType === 'NO_FACE') {
+                        showResult(`👤 NO FACE FOUND!<br><strong>${result.reason}</strong><br><small>💡 Ensure good lighting and face is clearly visible</small>`, 'warning');
+                    } else if (errorType === 'MULTIPLE_FACES') {
+                        showResult(`👥 MULTIPLE FACES DETECTED!<br><strong>${result.reason}</strong><br><small>⚠️ Only one person should be in the image</small>`, 'warning');
+                    } else if (errorType === 'FACE_MISMATCH') {
+                        showResult(`❌ FACE MISMATCH!<br><strong>${result.reason}</strong><br><small>🔍 Face doesn't match employee record</small>`, 'error', 'FACE_MISMATCH');
+                    } else if (errorType === 'EMPLOYEE_ERROR') {
+                        showResult(`🆔 EMPLOYEE ERROR!<br><strong>${result.reason}</strong><br><small>❓ Check Punch ID or employee data</small>`, 'error');
+                    } else if (errorType === 'INVALID_FILE_TYPE' || errorType === 'NO_FILE' || errorType === 'EMPTY_FILE') {
+                        showResult(`📁 FILE ERROR!<br><strong>${result.reason}</strong><br><small>📋 Please upload a valid JPG/PNG image file</small>`, 'error');
+                    } else {
+                        showResult(`❌ ${result.reason}`, 'error');
+                    }
+                    
                     if (result.ai_analysis) {
                         showAIInfo(result.ai_analysis);
                     }
@@ -412,16 +723,615 @@
             }
         });
 
-        function showResult(message, type) {
+        // Dual Model Test
+        dualModelTestBtn.addEventListener('click', async () => {
+            if (!capturedImage) {
+                showResult('Please capture a photo or upload an image first!', 'error');
+                return;
+            }
+
+            showLoading(true);
+            const formData = new FormData();
+            formData.append('picture', capturedImage);
+
+            try {
+                const response = await fetch('/dual-model-test', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                showLoading(false);
+
+                if (result.success) {
+                    let resultHtml = `
+                        <h3>🔄 Dual Model Comparison Results</h3>
+                        <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                    `;
+                    
+                    for (const [modelName, modelResult] of Object.entries(result.results)) {
+                        const isReal = modelResult.is_real;
+                        const confidence = modelResult.confidence;
+                        const bgColor = isReal ? '#d4edda' : '#f8d7da';
+                        const borderColor = isReal ? '#28a745' : '#dc3545';
+                        
+                        resultHtml += `
+                            <div style="
+                                flex: 1; 
+                                min-width: 200px;
+                                padding: 15px; 
+                                background: ${bgColor}; 
+                                border: 2px solid ${borderColor}; 
+                                border-radius: 10px;
+                                margin: 10px 0;
+                            ">
+                                <h4>${modelName}</h4>
+                                <p><strong>Result:</strong> ${isReal ? '✅ REAL' : '❌ FAKE'}</p>
+                                <p><strong>Confidence:</strong> ${(confidence * 100).toFixed(1)}%</p>
+                                <p><strong>Class:</strong> ${modelResult.detected_class}</p>
+                                <p><strong>Size:</strong> ${modelResult.model_size || 'N/A'}</p>
+                                <p><strong>Date:</strong> ${modelResult.model_date ? modelResult.model_date.split(' ').slice(0,3).join(' ') : 'N/A'}</p>
+                                ${modelResult.error ? `<p style="color: red;"><strong>Error:</strong> ${modelResult.error}</p>` : ''}
+                            </div>
+                        `;
+                    }
+                    
+                    resultHtml += `
+                        </div>
+                        <p style="margin-top: 15px; color: #666;">
+                            <strong>Processing Time:</strong> ${result.processing_time}s | 
+                            <strong>Current Active Model:</strong> ${result.current_model}
+                        </p>
+                    `;
+                    
+                    showResult(resultHtml, 'success');
+                } else {
+                    showResult(result.message, 'error');
+                }
+
+            } catch (error) {
+                showLoading(false);
+                showResult('Network error: ' + error.message, 'error');
+            }
+        });
+
+        // Test Multiple Images - Current AI
+        testMultipleAIBtn.addEventListener('click', async () => {
+            if (selectedFiles.length === 0) {
+                showResult('Please select multiple images first!', 'error');
+                return;
+            }
+
+            showLoading(true);
+            let results = [];
+            let successCount = 0;
+            let failCount = 0;
+
+            for (let i = 0; i < selectedFiles.length; i++) {
+                const file = selectedFiles[i];
+                const formData = new FormData();
+                formData.append('picture', file);
+
+                try {
+                    const response = await fetch('/test-ai-detection', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const result = await response.json();
+                    results.push({
+                        filename: file.name,
+                        success: result.status,
+                        isReal: result.status,
+                        confidence: result.confidence,
+                        message: result.message,
+                        detectedClass: result.detected_class
+                    });
+
+                    if (result.status) successCount++;
+                    else failCount++;
+
+                } catch (error) {
+                    results.push({
+                        filename: file.name,
+                        success: false,
+                        error: error.message
+                    });
+                    failCount++;
+                }
+
+                // Update progress
+                showResult(`Processing... ${i + 1}/${selectedFiles.length} (✅${successCount} ❌${failCount})`, 'info');
+            }
+
+            showLoading(false);
+            displayMultipleResults(results, 'Current AI Model');
+        });
+
+        // Test Multiple Images - Both Models
+        testMultipleDualBtn.addEventListener('click', async () => {
+            if (selectedFiles.length === 0) {
+                showResult('Please select multiple images first!', 'error');
+                return;
+            }
+
+            showLoading(true);
+            let results = [];
+
+            for (let i = 0; i < selectedFiles.length; i++) {
+                const file = selectedFiles[i];
+                const formData = new FormData();
+                formData.append('picture', file);
+
+                try {
+                    const response = await fetch('/dual-model-test', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const result = await response.json();
+                    results.push({
+                        filename: file.name,
+                        success: result.success,
+                        dualResults: result.results
+                    });
+
+                } catch (error) {
+                    results.push({
+                        filename: file.name,
+                        success: false,
+                        error: error.message
+                    });
+                }
+
+                // Update progress
+                showResult(`Processing... ${i + 1}/${selectedFiles.length}`, 'info');
+            }
+
+            showLoading(false);
+            displayDualMultipleResults(results);
+        });
+
+        function displayMultipleResults(results, modelName) {
+            let realCount = 0;
+            let fakeCount = 0;
+            
+            let resultHtml = `
+                <h3>📁 Multiple Images Test Results - ${modelName}</h3>
+                <div style="margin-bottom: 15px;">
+                    <strong>Total Images:</strong> ${results.length}
+                </div>
+                <div style="max-height: 400px; overflow-y: auto;">
+            `;
+
+            results.forEach((result, index) => {
+                if (result.success && result.isReal) realCount++;
+                else if (result.success && !result.isReal) fakeCount++;
+
+                const bgColor = result.success ? 
+                    (result.isReal ? '#d4edda' : '#f8d7da') : '#f8f9fa';
+                const borderColor = result.success ? 
+                    (result.isReal ? '#28a745' : '#dc3545') : '#6c757d';
+
+                resultHtml += `
+                    <div style="
+                        margin: 10px 0; 
+                        padding: 10px; 
+                        background: ${bgColor}; 
+                        border: 1px solid ${borderColor}; 
+                        border-radius: 5px;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                    ">
+                        <div>
+                            <strong>${index + 1}. ${result.filename}</strong><br>
+                            ${result.success ? 
+                                `${result.isReal ? '✅ REAL' : '❌ FAKE'} (${(result.confidence * 100).toFixed(1)}%)` : 
+                                `❌ Error: ${result.error || 'Processing failed'}`
+                            }
+                        </div>
+                        <div style="text-align: right; font-size: 0.9em; color: #666;">
+                            ${result.success ? result.detectedClass : 'Failed'}
+                        </div>
+                    </div>
+                `;
+            });
+
+            resultHtml += `
+                </div>
+                <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+                    <strong>Summary:</strong> 
+                    ✅ Real: ${realCount} | 
+                    ❌ Fake: ${fakeCount} | 
+                    ⚠️ Errors: ${results.length - realCount - fakeCount}
+                </div>
+            `;
+
+            showResult(resultHtml, 'success');
+        }
+
+        function displayDualMultipleResults(results) {
+            let resultHtml = `
+                <h3>🔄 Multiple Images Dual Model Comparison</h3>
+                <div style="margin-bottom: 15px;">
+                    <strong>Total Images:</strong> ${results.length}
+                </div>
+                <div style="max-height: 400px; overflow-y: auto;">
+            `;
+
+            results.forEach((result, index) => {
+                resultHtml += `
+                    <div style="margin: 15px 0; padding: 15px; border: 1px solid #ddd; border-radius: 10px;">
+                        <h4>${index + 1}. ${result.filename}</h4>
+                `;
+
+                if (result.success && result.dualResults) {
+                    resultHtml += `<div style="display: flex; gap: 15px; flex-wrap: wrap;">`;
+                    
+                    for (const [modelName, modelResult] of Object.entries(result.dualResults)) {
+                        const isReal = modelResult.is_real;
+                        const confidence = modelResult.confidence;
+                        const bgColor = isReal ? '#d4edda' : '#f8d7da';
+                        const borderColor = isReal ? '#28a745' : '#dc3545';
+                        
+                        resultHtml += `
+                            <div style="
+                                flex: 1; 
+                                min-width: 150px;
+                                padding: 10px; 
+                                background: ${bgColor}; 
+                                border: 1px solid ${borderColor}; 
+                                border-radius: 5px;
+                            ">
+                                <strong>${modelName}</strong><br>
+                                ${isReal ? '✅ REAL' : '❌ FAKE'}<br>
+                                <small>${(confidence * 100).toFixed(1)}% - ${modelResult.detected_class}</small>
+                            </div>
+                        `;
+                    }
+                    
+                    resultHtml += `</div>`;
+                } else {
+                    resultHtml += `<p style="color: red;">❌ Error: ${result.error || 'Processing failed'}</p>`;
+                }
+
+                resultHtml += `</div>`;
+            });
+
+            resultHtml += `</div>`;
+            showResult(resultHtml, 'success');
+        }
+
+        // Live Camera Verification (Face Unlock Style)
+        liveVerifyBtn.addEventListener('click', async () => {
+            const punchId = document.getElementById('punchId').value;
+            const name = document.getElementById('name').value;
+
+            if (!punchId || !name) {
+                showResult('Please fill in Punch ID and Name for live verification!', 'error');
+                return;
+            }
+
+            if (!stream) {
+                showResult('Please start camera first!', 'error');
+                return;
+            }
+
+            if (liveVerificationActive) {
+                // Stop live verification
+                liveVerificationActive = false;
+                liveVerifyBtn.textContent = '🎯 Live Verify (Face Unlock Style)';
+                liveVerifyBtn.style.background = 'linear-gradient(45deg, #28a745, #20c997)';
+                showResult('Live verification stopped.', 'info');
+                return;
+            }
+
+            // Start live verification
+            liveVerificationActive = true;
+            liveVerifyBtn.textContent = '⏹️ Stop Live Verify';
+            liveVerifyBtn.style.background = 'linear-gradient(45deg, #dc3545, #fd7e14)';
+            showResult('🎯 Live verification started! Look at camera...', 'info');
+
+            // Continuous verification loop
+            const verificationLoop = async () => {
+                if (!liveVerificationActive) return;
+
+                try {
+                    // Capture current frame from video
+                    const tempCanvas = document.createElement('canvas');
+                    const tempCtx = tempCanvas.getContext('2d');
+                    
+                    tempCanvas.width = video.videoWidth;
+                    tempCanvas.height = video.videoHeight;
+                    tempCtx.drawImage(video, 0, 0);
+                    
+                    // Convert to base64
+                    const frameData = tempCanvas.toDataURL('image/jpeg', 0.8);
+                    
+                    // Send for verification
+                    const formData = new FormData();
+                    formData.append('punch_id', punchId);
+                    formData.append('name', name);
+                    formData.append('frame_data', frameData);
+
+                    const response = await fetch('/live-verify', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const result = await response.json();
+
+                    if (result.status) {
+                        // Verification successful
+                        liveVerificationActive = false;
+                        liveVerifyBtn.textContent = '🎯 Live Verify (Face Unlock Style)';
+                        liveVerifyBtn.style.background = 'linear-gradient(45deg, #28a745, #20c997)';
+                        
+                        showResult(`
+                            <h3>✅ LIVE VERIFICATION SUCCESS!</h3>
+                            <p><strong>${result.message}</strong></p>
+                            <div class="ai-info">
+                                <strong>🎯 Face Unlock Style Verification:</strong><br>
+                                AI Analysis: ${result.ai_analysis.detected_class} (${(result.ai_analysis.confidence * 100).toFixed(1)}%)<br>
+                                Processing Time: ${result.processing_time}s<br>
+                                Mode: Live Camera Stream
+                            </div>
+                        `, 'success');
+
+                        // Show reference image if available
+                        if (result.reference_image) {
+                            setTimeout(() => {
+                                showReferenceImage(result.reference_image);
+                            }, 1000);
+                        }
+                        
+                        return; // Stop the loop
+                    } else {
+                        // Enhanced error display for live verification
+                        const confidence = result.ai_analysis ? result.ai_analysis.confidence : 0;
+                        const errorType = result.error_type || 'SCANNING';
+                        
+                        // Show specific error messages based on error type
+                        let errorMessage = result.message;
+                        let errorClass = 'info';
+                        
+                        if (errorType === 'FAKE_DETECTION') {
+                            errorMessage = `🚫 ${result.message}`;
+                            errorClass = 'error';
+                        } else if (errorType === 'NO_FACE') {
+                            errorMessage = `👤 ${result.message}`;
+                            errorClass = 'warning';
+                        } else if (errorType === 'MULTIPLE_FACES') {
+                            errorMessage = `👥 ${result.message}`;
+                            errorClass = 'warning';
+                        } else if (errorType === 'FACE_MISMATCH') {
+                            errorMessage = `❌ ${result.message}`;
+                            errorClass = 'error';
+                        } else {
+                            errorMessage = `🎯 Scanning... ${result.message}`;
+                            errorClass = 'info';
+                        }
+                        
+                        // Pass error type for special styling
+                        showResult(`
+                            ${errorMessage}<br>
+                            <small>AI: ${(confidence * 100).toFixed(1)}% confidence | ${errorType === 'FAKE_DETECTION' || errorType === 'FACE_MISMATCH' ? 'Fix issue and try again' : 'Keep looking at camera'}</small>
+                        `, errorClass, errorType);
+                    }
+
+                } catch (error) {
+                    showResult('Live verification error: ' + error.message, 'error');
+                }
+
+                // Continue loop every 2 seconds
+                if (liveVerificationActive) {
+                    setTimeout(verificationLoop, 2000);
+                }
+            };
+
+            // Start the verification loop
+            setTimeout(verificationLoop, 1000);
+        });
+
+        function showResult(message, type, errorType = null) {
             const result = document.getElementById('result');
             result.innerHTML = message;
-            result.className = type;
+            
+            // Reset all classes
+            result.className = '';
+            
+            // Add base type class
+            result.classList.add(type);
+            
+            // Add special styling for specific error types
+            if (errorType === 'FAKE_DETECTION') {
+                result.classList.add('fake-detection');
+            } else if (errorType === 'FACE_MISMATCH') {
+                result.classList.add('face-mismatch');
+            }
+            
             result.style.display = 'block';
+            
+            // Auto-scroll to result for better UX
+            result.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
         function showLoading(show) {
             document.getElementById('loading').style.display = show ? 'block' : 'none';
         }
+
+        // Start Live Camera (Separate tab)
+        startLiveCameraBtn.addEventListener('click', async () => {
+            try {
+                // Check if getUserMedia is supported
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('Camera access not supported in this browser. Please use Chrome, Firefox, or Safari.');
+                }
+                
+                liveStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'user',
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    } 
+                });
+                liveVideo.srcObject = liveStream;
+                
+                startLiveCameraBtn.textContent = '📹 Live Camera Active';
+                startLiveCameraBtn.disabled = true;
+                liveVerifyBtn.disabled = false;
+                
+                const liveStatus = document.getElementById('liveStatus');
+                liveStatus.style.display = 'block';
+                liveStatus.textContent = '✅ Camera ready! Enter details and start face unlock.';
+                liveStatus.style.background = '#d4edda';
+                
+                showResult('Live camera started successfully!', 'success');
+            } catch (err) {
+                showResult('Error accessing live camera: ' + err.message, 'error');
+            }
+        });
+
+        // Live Face Unlock Verification
+        liveVerifyBtn.addEventListener('click', async () => {
+            const livePunchId = document.getElementById('livePunchId').value;
+            const liveName = document.getElementById('liveName').value;
+
+            if (!livePunchId || !liveName) {
+                showResult('Please fill in Punch ID and Name for live verification!', 'error');
+                return;
+            }
+
+            if (!liveStream) {
+                showResult('Please start live camera first!', 'error');
+                return;
+            }
+
+            if (liveVerificationActive) {
+                // Stop live verification
+                liveVerificationActive = false;
+                liveVerifyBtn.textContent = '🎯 Start Face Unlock';
+                liveVerifyBtn.style.background = 'linear-gradient(45deg, #28a745, #20c997)';
+                document.getElementById('liveOverlay').style.display = 'none';
+                
+                const liveStatus = document.getElementById('liveStatus');
+                liveStatus.textContent = '⏹️ Live verification stopped.';
+                liveStatus.style.background = '#f8d7da';
+                return;
+            }
+
+            // Start live verification
+            liveVerificationActive = true;
+            liveVerifyBtn.textContent = '⏹️ Stop Live Verify';
+            liveVerifyBtn.style.background = 'linear-gradient(45deg, #dc3545, #fd7e14)';
+            document.getElementById('liveOverlay').style.display = 'block';
+            
+            const liveStatus = document.getElementById('liveStatus');
+            liveStatus.textContent = '🎯 Live verification started! Look at camera...';
+            liveStatus.style.background = '#fff3cd';
+
+            // Continuous verification loop
+            const verificationLoop = async () => {
+                if (!liveVerificationActive) return;
+
+                try {
+                    // Capture current frame from live video
+                    const tempCanvas = document.createElement('canvas');
+                    const tempCtx = tempCanvas.getContext('2d');
+                    
+                    tempCanvas.width = liveVideo.videoWidth;
+                    tempCanvas.height = liveVideo.videoHeight;
+                    tempCtx.drawImage(liveVideo, 0, 0);
+                    
+                    // Convert to base64
+                    const frameData = tempCanvas.toDataURL('image/jpeg', 0.8);
+                    
+                    // Send for verification
+                    const formData = new FormData();
+                    formData.append('punch_id', livePunchId);
+                    formData.append('name', liveName);
+                    formData.append('frame_data', frameData);
+
+                    const response = await fetch('/live-verify', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const result = await response.json();
+
+                    if (result.status) {
+                        // Verification successful
+                        liveVerificationActive = false;
+                        liveVerifyBtn.textContent = '🎯 Start Face Unlock';
+                        liveVerifyBtn.style.background = 'linear-gradient(45deg, #28a745, #20c997)';
+                        document.getElementById('liveOverlay').style.display = 'none';
+                        
+                        liveStatus.textContent = '✅ LIVE VERIFICATION SUCCESS!';
+                        liveStatus.style.background = '#d4edda';
+                        
+                        showResult(`
+                            <h3>✅ LIVE FACE UNLOCK SUCCESS!</h3>
+                            <p><strong>${result.message}</strong></p>
+                            <div class="ai-info">
+                                <strong>🎯 Phone-Style Face Unlock:</strong><br>
+                                AI Analysis: ${result.ai_analysis.detected_class} (${(result.ai_analysis.confidence * 100).toFixed(1)}%)<br>
+                                Processing Time: ${result.processing_time}s<br>
+                                Mode: Live Camera Stream
+                            </div>
+                        `, 'success');
+
+                        // Show reference image if available
+                        if (result.reference_image) {
+                            setTimeout(() => {
+                                showReferenceImage(result.reference_image);
+                            }, 1000);
+                        }
+                        
+                        return; // Stop the loop
+                    } else {
+                        // Enhanced live error display
+                        const confidence = result.ai_analysis ? result.ai_analysis.confidence : 0;
+                        const errorType = result.error_type || 'SCANNING';
+                        
+                        // Update status based on error type
+                        if (errorType === 'FAKE_DETECTION') {
+                            liveStatus.textContent = `🚫 FAKE IMAGE DETECTED! Use real face`;
+                            liveStatus.style.background = '#f8d7da';
+                            document.getElementById('liveOverlay').textContent = '🚫 No phone screens!';
+                        } else if (errorType === 'NO_FACE') {
+                            liveStatus.textContent = `👤 NO FACE DETECTED - Position your face clearly`;
+                            liveStatus.style.background = '#fff3cd';
+                            document.getElementById('liveOverlay').textContent = '👤 Show your face';
+                        } else if (errorType === 'MULTIPLE_FACES') {
+                            liveStatus.textContent = `👥 MULTIPLE FACES - Only one person allowed`;
+                            liveStatus.style.background = '#fff3cd';
+                            document.getElementById('liveOverlay').textContent = '👥 One person only';
+                        } else if (errorType === 'FACE_MISMATCH') {
+                            liveStatus.textContent = `❌ FACE MISMATCH - Not matching employee record`;
+                            liveStatus.style.background = '#f8d7da';
+                            document.getElementById('liveOverlay').textContent = '❌ Wrong person';
+                        } else {
+                            liveStatus.textContent = `🎯 Scanning... AI: ${(confidence * 100).toFixed(1)}% confidence`;
+                            liveStatus.style.background = '#cce7ff';
+                            document.getElementById('liveOverlay').textContent = '🎯 Keep looking...';
+                        }
+                    }
+
+                } catch (error) {
+                    liveStatus.textContent = 'Live verification error: ' + error.message;
+                    liveStatus.style.background = '#f8d7da';
+                }
+
+                // Continue loop every 1.5 seconds for faster response
+                if (liveVerificationActive) {
+                    setTimeout(verificationLoop, 1500);
+                }
+            };
+
+            // Start the verification loop
+            setTimeout(verificationLoop, 1000);
+        });
 
         function showAIInfo(aiData) {
             const aiInfo = `
@@ -449,6 +1359,9 @@
         window.addEventListener('beforeunload', () => {
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
+            }
+            if (liveStream) {
+                liveStream.getTracks().forEach(track => track.stop());
             }
         });
     </script>

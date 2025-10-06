@@ -41,7 +41,7 @@ class AIFakeDetector:
             self.model_loaded = False
             self.model = None
     
-    def predict_fake_real(self, image_path_or_array, confidence_threshold=0.5):
+    def predict_fake_real(self, image_path_or_array, confidence_threshold=0.3):
         """Predict if image is fake or real using trained model"""
         if not self.model_loaded:
             return {
@@ -159,6 +159,110 @@ def read_root():
     """Serve the main HTML page"""
     return FileResponse('index.html')
 
+@app.get("/models")
+def get_available_models():
+    """Get list of available AI models"""
+    models = []
+    for model_file in ['best.pt', 'best01.pt']:
+        if os.path.exists(model_file):
+            stat = os.stat(model_file)
+            models.append({
+                "name": model_file,
+                "size": stat.st_size,
+                "modified": time.ctime(stat.st_mtime),
+                "is_current": model_file == 'best.pt'  # Default current model
+            })
+    return JSONResponse({"models": models, "current": "best.pt"})
+
+@app.post("/live-verify")
+def live_camera_verify(
+    punch_id: str = Form(...),
+    name: str = Form(...),
+    frame_data: str = Form(...)  # Base64 encoded camera frame
+):
+    """Live camera verification like phone face unlock"""
+    start_time = time.time()
+    
+    try:
+        # Decode base64 image data
+        import base64
+        
+        # Remove data URL prefix if present
+        if ',' in frame_data:
+            frame_data = frame_data.split(',')[1]
+        
+        # Decode base64 to bytes
+        image_bytes = base64.b64decode(frame_data)
+        
+        # Get reference encoding (fresh from HRM API)
+        ref_encoding, error, ref_img_url = get_reference_encoding(punch_id, return_url=True)
+        if ref_encoding is None:
+            return JSONResponse({
+                "status": False, 
+                "reason": error, 
+                "reference_image": ref_img_url,
+                "live_mode": True
+            })
+        
+        # Verify with AI and face recognition
+        match, match_reason, ai_data = verify_face_with_ai(ref_encoding, image_bytes)
+        
+        processing_time = round(time.time() - start_time, 2)
+        
+        # Enhanced response with better error categorization
+        response_data = {
+            "status": bool(match),
+            "message": match_reason,
+            "reference_image": ref_img_url,
+            "processing_time": processing_time,
+            "live_mode": True,
+            "ai_analysis": {
+                "is_real": bool(ai_data.get("is_real", False)) if isinstance(ai_data, dict) else False,
+                "confidence": float(ai_data.get("confidence", 0)) if isinstance(ai_data, dict) else 0.0,
+                "detected_class": str(ai_data.get("detected_class", "unknown")) if isinstance(ai_data, dict) else "error"
+            }
+        }
+        
+        # Add error type for better frontend handling
+        if not match and isinstance(ai_data, dict):
+            if not ai_data.get("is_real", True):
+                response_data["error_type"] = "FAKE_DETECTION"
+            elif "NO FACE DETECTED" in match_reason:
+                response_data["error_type"] = "NO_FACE"
+            elif "MULTIPLE FACES" in match_reason:
+                response_data["error_type"] = "MULTIPLE_FACES"
+            elif "FACE MISMATCH" in match_reason or "DIFFERENT PERSON" in match_reason:
+                response_data["error_type"] = "FACE_MISMATCH"
+            else:
+                response_data["error_type"] = "UNKNOWN_ERROR"
+        
+        return JSONResponse(response_data)
+        
+    except ValueError as ve:
+        return JSONResponse({
+            "status": False,
+            "message": f"❌ DATA ERROR: Invalid image data received. Please try again.",
+            "processing_time": round(time.time() - start_time, 2),
+            "live_mode": True,
+            "error_type": "DATA_ERROR"
+        })
+    except ConnectionError as ce:
+        return JSONResponse({
+            "status": False,
+            "message": f"❌ NETWORK ERROR: Unable to connect to HRM server. Please check internet connection.",
+            "processing_time": round(time.time() - start_time, 2),
+            "live_mode": True,
+            "error_type": "NETWORK_ERROR"
+        })
+    except Exception as e:
+        return JSONResponse({
+            "status": False,
+            "message": f"❌ SYSTEM ERROR: {str(e)}",
+            "processing_time": round(time.time() - start_time, 2),
+            "live_mode": True,
+            "error_type": "SYSTEM_ERROR"
+        })
+
 def get_employee_data(employee_id: str):
     """Fresh employee data - no cache"""
     response = requests.post(EMPLOYEE_API_URL, json={"employeeId": employee_id})
@@ -209,7 +313,7 @@ def get_reference_encoding(employee_id: str, return_url=False):
     return encoding, None
 
 def verify_face_with_ai(reference_encoding, test_image_bytes, tolerance=0.6):
-    """Simple face verification with AI fake detection only"""
+    """Enhanced face verification with detailed error handling"""
     try:
         # Convert test image to RGB format
         test_pil_img = Image.open(io.BytesIO(test_image_bytes))
@@ -220,13 +324,29 @@ def verify_face_with_ai(reference_encoding, test_image_bytes, tolerance=0.6):
         # First check with AI if image is fake
         ai_result = ai_fake_detector.analyze_image(test_img)
         
+        # Enhanced AI fake detection error handling
         if not ai_result["is_real"]:
-            return False, f"❌ AI Detected FAKE Image (Confidence: {ai_result['confidence']:.3f})", ai_result
+            confidence = ai_result.get('confidence', 0)
+            detected_class = ai_result.get('detected_class', 'fake')
+            
+            # Specific error messages based on detection
+            if detected_class.lower() in ['phone', 'mobile', 'screen']:
+                error_msg = f"🚫 PHONE SCREEN DETECTED! Please use real face, not phone image (AI Confidence: {confidence:.3f})"
+            elif detected_class.lower() in ['fake', 'photo', 'picture']:
+                error_msg = f"🚫 FAKE IMAGE DETECTED! Please use live camera, not a photo (AI Confidence: {confidence:.3f})"
+            else:
+                error_msg = f"🚫 AI DETECTED FAKE/ARTIFICIAL IMAGE! Use real face only (Confidence: {confidence:.3f})"
+            
+            return False, error_msg, ai_result
         
         # If AI says it's real, proceed with face recognition
         test_encodings = face_recognition.face_encodings(test_img)
         if not test_encodings:
-            return False, "No face found in test image", ai_result
+            return False, "❌ NO FACE DETECTED in uploaded image. Please ensure your face is clearly visible and well-lit.", ai_result
+        
+        # Handle multiple faces
+        if len(test_encodings) > 1:
+            return False, f"❌ MULTIPLE FACES DETECTED ({len(test_encodings)} faces). Please ensure only one person is in the image.", ai_result
         
         test_encoding = test_encodings[0]
         match = face_recognition.compare_faces([reference_encoding], test_encoding, tolerance=tolerance)[0]
@@ -236,12 +356,28 @@ def verify_face_with_ai(reference_encoding, test_image_bytes, tolerance=0.6):
         face_confidence = (1 - face_distance) * 100
         
         if match:
-            return True, f"✅ Face verified successfully! AI: Real Image (Conf: {ai_result['confidence']:.3f}), Face Match: {face_confidence:.1f}%", ai_result
+            return True, f"✅ FACE VERIFICATION SUCCESSFUL! AI: Real Image ✓ (Conf: {ai_result['confidence']:.3f}), Face Match: {face_confidence:.1f}%", ai_result
         else:
-            return False, f"Face recognized as real but doesn't match employee. AI: Real (Conf: {ai_result['confidence']:.3f}), Face Match: {face_confidence:.1f}%", ai_result
+            # Enhanced face mismatch error
+            if face_confidence < 30:
+                error_msg = f"❌ COMPLETELY DIFFERENT PERSON! This face doesn't match employee record. AI: Real (Conf: {ai_result['confidence']:.3f}), Face Match: {face_confidence:.1f}%"
+            elif face_confidence < 50:
+                error_msg = f"❌ FACE MISMATCH! Face similarity is too low. Try better lighting or angle. AI: Real (Conf: {ai_result['confidence']:.3f}), Face Match: {face_confidence:.1f}%"
+            else:
+                error_msg = f"❌ PARTIAL MATCH DETECTED! Face is similar but not confident enough. Try again with clearer image. AI: Real (Conf: {ai_result['confidence']:.3f}), Face Match: {face_confidence:.1f}%"
+            
+            return False, error_msg, ai_result
             
     except Exception as e:
-        return False, f"Error during verification: {str(e)}", {"error": str(e)}
+        # Enhanced exception handling
+        if "No such file" in str(e):
+            return False, "❌ IMAGE FILE ERROR! Please upload a valid image file.", {"error": "Invalid image file"}
+        elif "cannot identify image file" in str(e):
+            return False, "❌ CORRUPTED IMAGE! Please upload a valid JPG/PNG image.", {"error": "Corrupted image"}
+        elif "PIL" in str(e) or "Image" in str(e):
+            return False, "❌ IMAGE PROCESSING ERROR! Please try uploading the image again.", {"error": "Image processing failed"}
+        else:
+            return False, f"❌ SYSTEM ERROR during verification: {str(e)}", {"error": str(e)}
 
 @app.post("/verify")
 def verify_person(
@@ -251,38 +387,108 @@ def verify_person(
 ):
     start_time = time.time()
     
-    # Read uploaded image
-    test_image_bytes = picture.file.read()
-    
-    # Get reference encoding (fresh from HRM API)
-    ref_encoding, error, ref_img_url = get_reference_encoding(punch_id, return_url=True)
-    if ref_encoding is None:
-        return JSONResponse({"status": False, "reason": error, "reference_image": ref_img_url})
-    
-    # Simple face verification with AI fake detection only
-    match, match_reason, ai_data = verify_face_with_ai(ref_encoding, test_image_bytes)
-    
-    processing_time = round(time.time() - start_time, 2)
-    
-    if not match:
-        return JSONResponse({
-            "status": False,
-            "reason": match_reason,
+    try:
+        # Validate file upload
+        if not picture or not picture.filename:
+            return JSONResponse({
+                "status": False, 
+                "reason": "❌ NO FILE UPLOADED! Please select an image file.",
+                "error_type": "NO_FILE"
+            })
+        
+        # Check file extension
+        allowed_extensions = ['.jpg', '.jpeg', '.png', '.bmp', '.gif']
+        file_extension = os.path.splitext(picture.filename.lower())[1]
+        if file_extension not in allowed_extensions:
+            return JSONResponse({
+                "status": False,
+                "reason": f"❌ INVALID FILE TYPE! Please upload JPG, PNG, or BMP image. Got: {file_extension}",
+                "error_type": "INVALID_FILE_TYPE"
+            })
+        
+        # Read uploaded image
+        test_image_bytes = picture.file.read()
+        
+        # Check file size
+        if len(test_image_bytes) == 0:
+            return JSONResponse({
+                "status": False,
+                "reason": "❌ EMPTY FILE! Please upload a valid image.",
+                "error_type": "EMPTY_FILE"
+            })
+        
+        if len(test_image_bytes) > 10 * 1024 * 1024:  # 10MB limit
+            return JSONResponse({
+                "status": False,
+                "reason": "❌ FILE TOO LARGE! Please upload image smaller than 10MB.",
+                "error_type": "FILE_TOO_LARGE"
+            })
+        
+        # Get reference encoding (fresh from HRM API)
+        ref_encoding, error, ref_img_url = get_reference_encoding(punch_id, return_url=True)
+        if ref_encoding is None:
+            return JSONResponse({
+                "status": False, 
+                "reason": error, 
+                "reference_image": ref_img_url,
+                "error_type": "EMPLOYEE_ERROR"
+            })
+        
+        # Face verification with AI fake detection
+        match, match_reason, ai_data = verify_face_with_ai(ref_encoding, test_image_bytes)
+        
+        processing_time = round(time.time() - start_time, 2)
+        
+        # Enhanced response with error type classification
+        response_data = {
+            "status": bool(match),
+            "reason": match_reason if not match else "✅ VERIFICATION SUCCESSFUL!",
+            "message": match_reason,
             "reference_image": ref_img_url,
             "processing_time": processing_time,
-            "ai_analysis": ai_data
-        })
-    
-    return JSONResponse({
-        "status": True,
-        "message": match_reason,
-        "processing_time": processing_time,
-        "ai_analysis": {
-            "is_real": ai_data.get("is_real", False),
-            "confidence": ai_data.get("confidence", 0),
-            "detected_class": ai_data.get("detected_class", "unknown")
+            "ai_analysis": {
+                "is_real": ai_data.get("is_real", False) if isinstance(ai_data, dict) else False,
+                "confidence": ai_data.get("confidence", 0) if isinstance(ai_data, dict) else 0,
+                "detected_class": ai_data.get("detected_class", "unknown") if isinstance(ai_data, dict) else "error"
+            }
         }
-    })
+        
+        # Add specific error types for better frontend handling
+        if not match and isinstance(ai_data, dict):
+            if not ai_data.get("is_real", True):
+                response_data["error_type"] = "FAKE_DETECTION"
+            elif "NO FACE DETECTED" in match_reason:
+                response_data["error_type"] = "NO_FACE"
+            elif "MULTIPLE FACES" in match_reason:
+                response_data["error_type"] = "MULTIPLE_FACES"
+            elif "FACE MISMATCH" in match_reason or "DIFFERENT PERSON" in match_reason:
+                response_data["error_type"] = "FACE_MISMATCH"
+            else:
+                response_data["error_type"] = "VERIFICATION_FAILED"
+        
+        return JSONResponse(response_data)
+    
+    except ValueError as ve:
+        return JSONResponse({
+            "status": False,
+            "reason": "❌ INVALID IMAGE DATA! Please upload a valid image file.",
+            "processing_time": round(time.time() - start_time, 2),
+            "error_type": "INVALID_DATA"
+        })
+    except ConnectionError as ce:
+        return JSONResponse({
+            "status": False,
+            "reason": "❌ NETWORK ERROR! Unable to connect to HRM server.",
+            "processing_time": round(time.time() - start_time, 2),
+            "error_type": "NETWORK_ERROR"
+        })
+    except Exception as e:
+        return JSONResponse({
+            "status": False,
+            "reason": f"❌ SYSTEM ERROR: {str(e)}",
+            "processing_time": round(time.time() - start_time, 2),
+            "error_type": "SYSTEM_ERROR"
+        })
 
 @app.post("/test-ai-detection")
 def test_ai_detection_only(picture: UploadFile = File(...)):
